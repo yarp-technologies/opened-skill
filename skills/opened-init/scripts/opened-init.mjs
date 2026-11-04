@@ -175,11 +175,156 @@ function reply(response, status, body) {
 
 function form(route) {
   return `<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Connect Opened</title><style>:root{color-scheme:light dark}body{font:16px system-ui;max-width:36rem;margin:4rem auto;padding:0 1.25rem;line-height:1.5}input{box-sizing:border-box;width:100%;padding:.7rem;margin:.5rem 0 1rem}button{padding:.6rem 1rem;margin-right:.5rem}form{display:inline}label{display:block}</style></head>
-<body><h1>Connect Opened</h1><p>Paste your Opened API key here, not in the agent chat. It stays on this computer. Saving replaces any previously stored Opened key.</p>
-<form method="post" action="${route}" autocomplete="off"><label for="key">Opened API key</label><input id="key" name="key" type="password" autocomplete="off" required autofocus><button type="submit">Save key</button></form>
-<form method="post" action="${route}/cancel"><button type="submit">Cancel</button></form></body></html>`;
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Connect Opened</title>
+<style>
+  :root {
+    color-scheme: light;
+    --background: #f1f1f6;
+    --card: #ffffff;
+    --foreground: #14141a;
+    --muted-foreground: #6b6b79;
+    --muted: #eeeef3;
+    --border: #e9e9f0;
+    --field-outline: #8a8a98;
+    --action: #4f46e5;
+    --action-hover: #3730a3;
+    --action-foreground: #ffffff;
+    --brand-gradient: linear-gradient(135deg, #6366f1, #8b5cf6);
+    --action-gradient: linear-gradient(135deg, #4f46e5, #7e22ce);
+    --glow: rgb(79 70 229 / 8%);
+    --shadow: 0 1px 2px rgb(20 20 26 / 6%), 0 30px 60px rgb(20 20 26 / 14%);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --background: oklch(0.172 0.006 66);
+      --card: oklch(0.205 0.006 66);
+      --foreground: oklch(0.965 0.004 80);
+      --muted-foreground: oklch(0.75 0.008 80);
+      --muted: oklch(0.242 0.007 66);
+      --border: oklch(0.305 0.008 66);
+      --field-outline: oklch(0.51 0.008 66);
+      --action: oklch(0.72 0.15 275);
+      --action-hover: oklch(0.8 0.13 275);
+      --action-foreground: oklch(0.18 0.03 275);
+      --brand-gradient: linear-gradient(135deg, oklch(0.78 0.15 275), oklch(0.68 0.16 300));
+      --action-gradient: linear-gradient(135deg, oklch(0.8 0.15 275), oklch(0.68 0.18 300));
+      --glow: oklch(0.72 0.15 275 / 12%);
+      --shadow: 0 1px 2px rgb(0 0 0 / 12%), 0 30px 60px rgb(0 0 0 / 30%);
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    min-height: 100vh;
+    min-height: 100dvh;
+    margin: 0;
+    padding: 2rem 1rem;
+    display: grid;
+    place-items: center;
+    background: radial-gradient(ellipse 700px 500px at 100% 100%, var(--glow), transparent 60%), var(--background);
+    color: var(--foreground);
+    font: 1rem/1.5 Onest, ui-sans-serif, system-ui, sans-serif;
+  }
+  main {
+    width: min(100%, 425px);
+    padding: 2.5rem;
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+    background: var(--card);
+    box-shadow: var(--shadow);
+  }
+  .brand { display: flex; align-items: center; gap: .75rem; font-weight: 700; }
+  .brand-mark {
+    display: grid;
+    width: 2.5rem;
+    height: 2.5rem;
+    place-items: center;
+    border-radius: .75rem;
+    background: var(--brand-gradient);
+    color: var(--action-foreground);
+  }
+  .brand-mark svg { width: 1.3rem; height: 1.3rem; }
+  h1 { margin: 2rem 0 .5rem; font-size: 1.5rem; line-height: 1.2; letter-spacing: -.02em; }
+  p { margin: 0; }
+  .intro { color: var(--muted-foreground); }
+  .key-form { display: grid; gap: .5rem; margin-top: 1.75rem; }
+  label { color: var(--muted-foreground); font-size: .875rem; font-weight: 500; }
+  input {
+    width: 100%;
+    min-width: 0;
+    height: 2.75rem;
+    padding: 0 .75rem;
+    border: 1px solid var(--field-outline);
+    border-radius: .5rem;
+    background: var(--muted);
+    color: var(--foreground);
+    font: inherit;
+  }
+  .hint { color: var(--muted-foreground); font-size: .8125rem; line-height: 1.5; }
+  button, .button {
+    display: inline-flex;
+    min-height: 2.75rem;
+    width: 100%;
+    align-items: center;
+    justify-content: center;
+    gap: .5rem;
+    padding: .625rem 1rem;
+    border: 1px solid transparent;
+    border-radius: .5rem;
+    font: inherit;
+    font-weight: 600;
+    text-align: center;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  :focus-visible { outline: 2px solid var(--action); outline-offset: 3px; }
+  .save { margin-top: .75rem; background: var(--action-gradient); color: var(--action-foreground); }
+  .save:hover { background: var(--action-hover); }
+  .create { margin-top: 1.75rem; padding-top: 1.5rem; border-top: 1px solid var(--border); }
+  .create-title { font-size: .9375rem; font-weight: 600; }
+  .create .hint { margin-top: .25rem; }
+  .create .button { margin-top: 1rem; border-color: var(--border); background: var(--card); color: var(--foreground); }
+  .create .button:hover, .cancel:hover { background: var(--muted); }
+  .create svg { width: 1rem; height: 1rem; }
+  .cancel { margin-top: .5rem; background: transparent; color: var(--muted-foreground); }
+  @media (max-width: 480px) { main { padding: 1.75rem 1.5rem; } }
+</style>
+</head>
+<body>
+<main>
+  <div class="brand">
+    <span class="brand-mark" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M20.341 6.484A10 10 0 0 1 10.266 21.85"/><path d="M3.659 17.516A10 10 0 0 1 13.74 2.152"/>
+        <circle cx="12" cy="12" r="3"/><circle cx="19" cy="5" r="2"/><circle cx="5" cy="19" r="2"/>
+      </svg>
+    </span>
+    <span>Opened</span>
+  </div>
+  <h1>Connect your agent</h1>
+  <p class="intro">Add an Opened API key to connect your agent to your account.</p>
+  <form class="key-form" method="post" action="${route}" autocomplete="off">
+    <label for="key">Opened API key</label>
+    <input id="key" name="key" type="password" autocomplete="off" aria-describedby="key-help" required autofocus>
+    <p class="hint" id="key-help">The key stays where the agent runs. Never paste it in chat. Saving replaces a previously saved key.</p>
+    <button class="save" type="submit">Save key</button>
+  </form>
+  <section class="create" aria-labelledby="create-title">
+    <p class="create-title" id="create-title">Need an API key?</p>
+    <p class="hint">In your Opened profile, select API keys to create one.</p>
+    <a class="button" href="https://opened.site/app/profile" target="_blank" rel="noopener noreferrer" aria-label="Create an API key in your Opened profile (opens in a new tab)">
+      Create an API key
+      <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 5h6v6M19 5l-9 9"/><path d="M19 13v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5"/></svg>
+    </a>
+  </section>
+  <form method="post" action="${route}/cancel"><button class="cancel" type="submit">Cancel</button></form>
+</main>
+</body>
+</html>`;
 }
 
 async function migrate(source) {

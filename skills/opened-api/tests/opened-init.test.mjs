@@ -54,6 +54,16 @@ test("the local form receives the key without echoing it and saves it privately"
   assert.equal((await stat(keyFile)).mode & 0o777, 0o600);
 });
 
+test("the Opened profile link does not expose the local form address", async (t) => {
+  const { url } = await start(t);
+  const page = await fetch(url);
+  const html = await page.text();
+  const link = html.match(/<a\b[^>]*href="https:\/\/opened\.site\/app\/profile"[^>]*>/)?.[0];
+  assert.ok(link, "the form links to the Opened profile");
+  assert.match(link, /\btarget="_blank"/);
+  assert.match(link, /\brel="[^"]*\bnoreferrer\b[^"]*"/);
+});
+
 test("a wrong origin, wrong path, or malformed key cannot initialize the file", async (t) => {
   const { env, url } = await start(t);
   const request = (target, origin, key = fakeKey) =>
