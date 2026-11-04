@@ -188,6 +188,23 @@ test("the documented API function sends a private key only in the HTTP header", 
   });
 });
 
+test("the API function defaults to the Opened service when no origin is configured", async (t) => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "opened-api-default-test-"));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const config = path.join(directory, "config");
+  const keyFile = path.join(config, "opened", "loom-api-key");
+  await mkdir(path.dirname(keyFile), { recursive: true });
+  await writeFile(keyFile, fakeKey, { mode: 0o600 });
+  const skill = await readFile(fileURLToPath(new URL("../SKILL.md", import.meta.url)), "utf8");
+  const shell = skill.match(/```sh\n([\s\S]*?)\n```/)[1];
+  const env = { ...process.env, XDG_CONFIG_HOME: config };
+  delete env.OPENED_BASE_URL;
+  const mock = 'curl() { cat >/dev/null; printf "%s\\n" "$@"; }';
+  const result = await exec("sh", ["-c", `${shell}\n${mock}\nopened_api '/roadmaps'`], { env });
+  assert.equal(result.stdout.trim().split("\n").at(-1), "https://opened.site/api/roadmaps");
+  assert.equal(result.stdout.includes(fakeKey), false);
+});
+
 test("the API function refuses key management and administrative routes", async (t) => {
   const directory = await mkdtemp(path.join(os.tmpdir(), "opened-api-scope-test-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
