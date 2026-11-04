@@ -1,6 +1,6 @@
-# Opened Loom agent skills
+# Opened agent skills
 
-Two portable agent skills work with a Loom account through its API:
+Two portable agent skills work with an Opened account through its API:
 
 - `opened-api` carries out requests within the API key's permissions.
 - `opened-init` sets up or migrates the key without putting it in the agent conversation.
@@ -10,15 +10,13 @@ Two portable agent skills work with a Loom account through its API:
 From the project where the agent will run, install both skills and choose your agent when prompted:
 
 ```sh
-npx skills add https://gitlab.tfcp.ru/opened/loom-skill.git --skill opened-api opened-init
+npx skills add https://github.com/yarp-technologies/opened-skill --skill opened-api opened-init
 ```
 
 To select agents non-interactively, add for example `--agent codex claude-code opencode --yes`.
 Use `--agent '*' --yes --copy` to install for every project-level agent supported by `npx skills`;
 without `--copy`, the installer may skip agents whose project directories do not yet exist. Add
-`--global` for agents that support user-level installation. The internal GitLab repository requires
-Git credentials with read access; the `.git` suffix tells `npx skills` to treat its address as a
-Git repository.
+`--global` for agents that support user-level installation.
 
 DSH is not an `npx skills` agent selector in version 1.7.6. Its filesystem skill provider can use
 the shared project `.agents/skills` directory; install for an agent that uses this directory, such
@@ -29,7 +27,7 @@ locations.
 
 Use the `opened-init` skill. The way to invoke a skill depends on the agent: for example,
 `/opened-init` in Claude Code or DSH, `$opened-init` in Codex, or select the skill in your agent.
-You can also ask the agent to set up the Loom key using `opened-init`. Slash-command registration
+You can also ask the agent to set up the Opened key using `opened-init`. Slash-command registration
 is not part of `npx skills`; OpenCode users who specifically want `/opened-init` can
 register the bundled command in their project:
 
@@ -46,9 +44,16 @@ tunnel rather than exposing the form publicly. File mode `600` is a POSIX permis
 refuses to run on native Windows because it cannot guarantee equivalent ACLs; use it from WSL.
 
 The key is shared by harnesses on the same machine and account at
-`$XDG_CONFIG_HOME/opened/loom-api-key` when `XDG_CONFIG_HOME` is absolute. If it is empty, unset,
-or relative, the key is stored at `~/.config/opened/loom-api-key`. To migrate a key from an
-existing private file, ask the agent to use the `opened-init` migration with that file path, or run:
+`$XDG_CONFIG_HOME/opened/api-key` when `XDG_CONFIG_HOME` is absolute. If it is empty, unset,
+or relative, the key is stored at `~/.config/opened/api-key`. When upgrading from an earlier
+version, the agent can copy the previous private key without exposing it:
+
+```sh
+node .agents/skills/opened-init/scripts/opened-init.mjs --migrate-previous
+```
+
+To migrate a key from another private file, ask the agent to use the `opened-init` migration with
+that file path, or run:
 
 ```sh
 node .agents/skills/opened-init/scripts/opened-init.mjs --migrate /path/to/existing/key

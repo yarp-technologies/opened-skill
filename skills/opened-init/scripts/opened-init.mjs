@@ -13,19 +13,29 @@ const maxBody = 2048;
 if (process.platform === "win32") {
   console.error("Native Windows is not supported because POSIX key permissions cannot be guaranteed. Use WSL.");
   process.exitCode = 1;
-} else if (process.argv[2] === "--migrate") {
+} else if (process.argv[2] === "--migrate" || process.argv[2] === "--migrate-previous") {
+  const previous = process.argv[2] === "--migrate-previous";
   try {
-    if (process.argv.length !== 4 || !process.argv[3]) {
-      console.error("Specify the path to the existing key file after --migrate.");
+    if (
+      (previous && process.argv.length !== 3) ||
+      (!previous && (process.argv.length !== 4 || !process.argv[3]))
+    ) {
+      console.error(
+        previous ? "The previous-key migration takes no arguments." : "Specify the path to the existing key file after --migrate.",
+      );
       process.exitCode = 1;
     } else {
-      await migrate(process.argv[3]);
-      console.log("The existing Loom key was copied to the Opened configuration directory.");
+      const source = previous ? path.join(configDirectory(), "opened", "loom-api-key") : process.argv[3];
+      if (await migrate(source)) {
+        console.log("The existing Opened key was copied to the current configuration location.");
+      } else {
+        console.error("The existing Opened key was not found.");
+        process.exitCode = previous ? 2 : 1;
+      }
     }
   } catch (error) {
-    if (error.code === "ENOENT") console.error("The existing Loom key was not found.");
-    else if (error.code === "EEXIST") console.error("An Opened key already exists and was not changed.");
-    else console.error("Could not migrate the Loom key. Check the key and directory permissions.");
+    if (error.code === "EEXIST") console.error("An Opened key already exists and was not changed.");
+    else console.error("Could not migrate the Opened key. Check the key and directory permissions.");
     process.exitCode = 1;
   }
 } else if (process.argv[2] === "--serve") {
@@ -135,11 +145,11 @@ async function serve() {
       const values = fields.getAll("key");
       const key = values.length === 1 ? values[0].trim() : "";
       if (!/^loom_[A-Za-z0-9_-]{20,128}$/.test(key)) {
-        reply(response, 400, "The key format is not recognized. Use your Loom API key.");
+        reply(response, 400, "The key format is not recognized. Use your Opened API key.");
         return;
       }
       await save(key);
-      finish(response, "The Loom key was saved. You can close this page.");
+      finish(response, "The Opened key was saved. You can close this page.");
     } finally {
       busy = false;
     }
@@ -167,13 +177,19 @@ function form(route) {
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Connect Opened</title><style>:root{color-scheme:light dark}body{font:16px system-ui;max-width:36rem;margin:4rem auto;padding:0 1.25rem;line-height:1.5}input{box-sizing:border-box;width:100%;padding:.7rem;margin:.5rem 0 1rem}button{padding:.6rem 1rem;margin-right:.5rem}form{display:inline}label{display:block}</style></head>
-<body><h1>Connect Opened</h1><p>Paste your Loom API key here, not in the agent chat. It stays on this computer. Saving replaces any previously stored Loom key.</p>
-<form method="post" action="${route}" autocomplete="off"><label for="key">Loom API key</label><input id="key" name="key" type="password" autocomplete="off" required autofocus><button type="submit">Save key</button></form>
+<body><h1>Connect Opened</h1><p>Paste your Opened API key here, not in the agent chat. It stays on this computer. Saving replaces any previously stored Opened key.</p>
+<form method="post" action="${route}" autocomplete="off"><label for="key">Opened API key</label><input id="key" name="key" type="password" autocomplete="off" required autofocus><button type="submit">Save key</button></form>
 <form method="post" action="${route}/cancel"><button type="submit">Cancel</button></form></body></html>`;
 }
 
 async function migrate(source) {
-  const file = await open(source, constants.O_RDONLY | (constants.O_NOFOLLOW || 0) | (constants.O_NONBLOCK || 0));
+  let file;
+  try {
+    file = await open(source, constants.O_RDONLY | (constants.O_NOFOLLOW || 0) | (constants.O_NONBLOCK || 0));
+  } catch (error) {
+    if (error.code === "ENOENT") return false;
+    throw error;
+  }
   let key;
   try {
     const info = await file.stat();
@@ -186,12 +202,16 @@ async function migrate(source) {
     await file.close();
   }
   await save(key, false);
+  return true;
+}
+
+function configDirectory() {
+  const configured = process.env.XDG_CONFIG_HOME || "";
+  return path.isAbsolute(configured) ? configured : path.join(os.homedir(), ".config");
 }
 
 async function save(key, replace = true) {
-  const configured = process.env.XDG_CONFIG_HOME || "";
-  const config = path.isAbsolute(configured) ? configured : path.join(os.homedir(), ".config");
-  const directory = path.join(config, "opened");
+  const directory = path.join(configDirectory(), "opened");
   await mkdir(directory, { recursive: true, mode: 0o700 });
   const info = await lstat(directory);
   if (!info.isDirectory() || (info.mode & 0o022) || (process.getuid && info.uid !== process.getuid())) {
@@ -206,7 +226,7 @@ async function save(key, replace = true) {
     } finally {
       await file.close();
     }
-    const target = path.join(directory, "loom-api-key");
+    const target = path.join(directory, "api-key");
     if (replace) await rename(temporary, target);
     else await link(temporary, target);
   } finally {

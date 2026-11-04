@@ -1,11 +1,11 @@
-# Opened Loom API reference
+# Opened API reference
 
 The default API root is `https://opened.site/api`. All paths below are relative to `/api`; use the
 `opened_api` function from `SKILL.md` for authenticated operations. An explicitly configured
 `OPENED_BASE_URL` is a service origin without `/api` and replaces the default origin.
 
-This reference compares the Loom API-key branch at `e4897850a0bb576e2568bade67f3e8398485253c`
-with Loom `main` at `3e215eda0d9a5a6b710548ef6cc93cdffc20ab8a`. It is not proof of what is
+This reference compares the API-key-enabled source at `e4897850a0bb576e2568bade67f3e8398485253c`
+with the service `main` at `3e215eda0d9a5a6b710548ef6cc93cdffc20ab8a`. It is not proof of what is
 currently deployed. Try the deployment's `/api/schema/openapi.json` without credentials; if it is
 unavailable, use this reference and tell the user the deployed contract could not be checked. When
 the schema is available, follow its methods and schemas within the skill's permitted scope.
