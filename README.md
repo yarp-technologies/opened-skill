@@ -1,33 +1,67 @@
-# Opened Loom API skill
+# Opened Loom agent skills
 
-An agent skill for working with a Loom account through its API. It respects the permissions of a
-Loom API key and includes a local form for entering that key without putting it in the chat.
+Two portable agent skills work with a Loom account through its API:
+
+- `opened-api` carries out requests within the API key's permissions.
+- `opened-init` sets up or migrates the key without putting it in the agent conversation.
 
 ## Install
 
-From the project where the agent will run:
+From the project where the agent will run, install both skills and choose your agent when prompted:
 
 ```sh
-npx skills add https://gitlab.tfcp.ru/opened/loom-skill.git --skill opened-api --agent opencode --yes
+npx skills add https://gitlab.tfcp.ru/opened/loom-skill.git --skill opened-api opened-init
 ```
 
-The GitLab repository is internal; Git must have credentials with read access. Use the `.git`
-suffix with `npx skills` so the self-hosted GitLab address is treated as a Git repository.
+To select agents non-interactively, add for example `--agent codex claude-code opencode --yes`.
+Use `--agent '*' --yes --copy` to install for every project-level agent supported by `npx skills`;
+without `--copy`, the installer may skip agents whose project directories do not yet exist. Add
+`--global` for agents that support user-level installation. The internal GitLab repository requires
+Git credentials with read access; the `.git` suffix tells `npx skills` to treat its address as a
+Git repository.
 
-To register `/opened-init` in OpenCode or EdHarness for this project, also run:
+DSH is not an `npx skills` agent selector in version 1.7.6. Its filesystem skill provider can use
+the shared project `.agents/skills` directory; install for an agent that uses this directory, such
+as `codex`, and enable DSH's skill provider and UI. Agent-specific configuration can change these
+locations.
+
+## Set up the key
+
+Use the `opened-init` skill. The way to invoke a skill depends on the agent: for example,
+`/opened-init` in Claude Code or DSH, `$opened-init` in Codex, or select the skill in EdHarness.
+You can also ask the agent to set up the Loom key using `opened-init`. Slash-command registration
+is not part of `npx skills`; OpenCode and EdHarness users who specifically want `/opened-init` can
+register the bundled command in their project:
 
 ```sh
 mkdir -p .opencode/commands
 cp -n .agents/skills/opened-api/commands/opened-init.md .opencode/commands/opened-init.md
 ```
 
-The second step is needed because `npx skills` installs skills, not slash-command files. The
-command is copied without replacing an existing file. Run `/opened-init` without arguments and
-enter the key only in the local browser form it provides. Alternatively, ask the agent to use the
-`opened-api` skill to set up the key; it can start the same form without the slash command.
+The command is copied without replacing an existing file. The agent starts a temporary local
+browser form; enter the key there, not in the chat or as a command argument. The agent must be able
+to run local commands, and the form requires Node.js and a browser that can reach its loopback
+interface. When the agent runs remotely, the form and key are on the remote machine; use a secure
+tunnel rather than exposing the form publicly. File mode `600` is a POSIX permission. The helper
+refuses to run on native Windows because it cannot guarantee equivalent ACLs; use it from WSL.
+
+The key is shared by harnesses on the same machine and account at
+`$XDG_CONFIG_HOME/opened/loom-api-key` when `XDG_CONFIG_HOME` is absolute. If it is empty, unset,
+or relative, the key is stored at `~/.config/opened/loom-api-key`. To migrate a key saved by an
+older version under `${XGD_CONFIG_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}}/edharness/opened_key`,
+ask the agent to use the `opened-init` migration, or run:
+
+```sh
+node .agents/skills/opened-init/scripts/opened-init.mjs --migrate
+```
+
+Adjust the skill path for the installation location when needed. Migration refuses to overwrite a
+new key and retains the old file. Once any older installations no longer need it, remove the old
+file yourself if desired.
 
 Set `OPENED_BASE_URL` to the Loom service origin, without `/api`, or provide that address to the
-agent. The skill describes the key location, permissions, and API usage.
+agent. The API skill uses a POSIX shell and `curl` to send requests without exposing the key in
+command arguments or output.
 
 ## Verify
 

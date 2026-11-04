@@ -1,6 +1,7 @@
 ---
 name: opened-api
 description: Use when an agent needs to read or change an Opened Loom account through its HTTP API using an API key.
+compatibility: Requires a POSIX shell, curl, and access to the Loom API.
 ---
 
 # Opened Loom API
@@ -11,20 +12,12 @@ For routes, permission names, and product-specific workflows, read [references/a
 
 ## Set up the key
 
-If the `/opened-init` command is installed, use it with no arguments. Otherwise start
-`node <skill-directory>/scripts/opened-init.mjs` and give the user the returned temporary link on
-`127.0.0.1`. To make `/opened-init` available in OpenCode or EdHarness, copy
-[commands/opened-init.md](commands/opened-init.md) to the project's `.opencode/commands/` directory;
-installing the skill alone does not register slash commands. The user enters the key on the local
-page, outside the chat. Never ask for the key in
-the chat or as a command argument, and never read its contents into a tool result. The form closes
-after saving, cancellation, or ten minutes. It replaces an existing stored key when submitted.
-If the agent runs on a different machine, the form and key file are on that machine; arrange access
-to its loopback interface without exposing it publicly.
-
-The helper stores the key with mode `600` at `$XGD_CONFIG_DIR/edharness/opened_key`. When
-`XGD_CONFIG_DIR` is unset or empty, it uses `${XDG_CONFIG_HOME:-$HOME/.config}` as the config
-directory. It reports only a local URL; it does not log or echo the key.
+The key is stored with mode `600` at `$XDG_CONFIG_HOME/opened/loom-api-key` when `XDG_CONFIG_HOME`
+is absolute, or at `$HOME/.config/opened/loom-api-key` otherwise.
+If it is missing, use the `opened-init` skill, installed alongside this one. When a previous key
+exists at `${XGD_CONFIG_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}}/edharness/opened_key`, use its
+migration command first; otherwise start its local browser form. Do not print or read the key
+into a tool result. If `opened-init` is unavailable, ask the user to install it before setup.
 
 ## Connect
 
@@ -54,8 +47,9 @@ opened_api() (
   path=${1:?Provide an API path beginning with /}
   shift
   case "$path" in /*) ;; *) printf '%s\n' 'Invalid API path' >&2; exit 1 ;; esac
-  config=${XGD_CONFIG_DIR:-${XDG_CONFIG_HOME:-"${HOME:?Set HOME or a config directory}/.config"}}
-  key_file=$config/edharness/opened_key
+  config=${XDG_CONFIG_HOME:-}
+  case "$config" in /*) ;; *) config="${HOME:?Set HOME or a config directory}/.config" ;; esac
+  key_file=$config/opened/loom-api-key
   mode=$(stat -c '%a' "$key_file" 2>/dev/null) || mode=$(stat -f '%Lp' "$key_file" 2>/dev/null) || exit 1
   [ "$mode" = 600 ] || { printf '%s\n' 'Loom key file must have mode 600' >&2; exit 1; }
   key=$(cat "$key_file") || exit 1
