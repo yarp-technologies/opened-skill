@@ -8,8 +8,7 @@ details; look up the relevant path and follow its schema references before a mut
 
 For these protected routes, `GET` and `HEAD` require the named `:read` permission and other methods
 require `:write`. Read and write are independent. `/auth/me` specifically requires
-`identity:read`. Admin routes also require an administrator role. A key cannot exceed its owner's
-current role or access someone else's owned resources.
+`identity:read`. A key cannot exceed its owner's current role or access someone else's owned resources.
 
 | Paths | Permission prefix | Typical work |
 | --- | --- | --- |
@@ -21,11 +20,9 @@ current role or access someone else's owned resources.
 | `/examinator` | `examinator` | Work with interviews, exam sessions, and attempt history. |
 | `/notifications` | `notifications` | List notifications, count unread items, and mark them read. |
 | `/profile` | `profile` | Update the owner's profile. |
-| `/api-keys` | `api_keys` | List, create, or revoke the owner's keys. |
-| `/admin/users` | `admin` | Administer users when the effective role permits it. |
 
 Session login, refresh, logout, and registration are not API-key operations. A separate Bifrost
-virtual key is needed for inference; `llm:access` provisions it when a Loom key is created.
+virtual key is needed for inference.
 
 ## Common operations
 
@@ -71,12 +68,3 @@ task ID: inspect that task or its events instead of treating acceptance as compl
 turns and several event endpoints use server-sent events. Other operations also require an
 `Idempotency-Key`; check the deployed contract for the specific route and reuse a key only for a
 retry of the same intent and payload.
-
-## Key management
-
-A key can create another key only within its own role and permissions. `POST /api-keys` returns
-the Loom secret and, when selected, a separate Bifrost secret exactly once. Never expose that
-response in tool output or logs: if the user explicitly requests key creation, arrange a private
-destination with mode `600` and communicate its location rather than the secrets. Revoking a
-Loom key also deletes its associated Bifrost key. Key creation, revocation, deletion of content,
-and other mutations must be within the user's requested task.

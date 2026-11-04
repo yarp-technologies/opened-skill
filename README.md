@@ -28,9 +28,9 @@ locations.
 ## Set up the key
 
 Use the `opened-init` skill. The way to invoke a skill depends on the agent: for example,
-`/opened-init` in Claude Code or DSH, `$opened-init` in Codex, or select the skill in EdHarness.
+`/opened-init` in Claude Code or DSH, `$opened-init` in Codex, or select the skill in your agent.
 You can also ask the agent to set up the Loom key using `opened-init`. Slash-command registration
-is not part of `npx skills`; OpenCode and EdHarness users who specifically want `/opened-init` can
+is not part of `npx skills`; OpenCode users who specifically want `/opened-init` can
 register the bundled command in their project:
 
 ```sh
@@ -47,21 +47,20 @@ refuses to run on native Windows because it cannot guarantee equivalent ACLs; us
 
 The key is shared by harnesses on the same machine and account at
 `$XDG_CONFIG_HOME/opened/loom-api-key` when `XDG_CONFIG_HOME` is absolute. If it is empty, unset,
-or relative, the key is stored at `~/.config/opened/loom-api-key`. To migrate a key saved by an
-older version under `${XGD_CONFIG_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}}/edharness/opened_key`,
-ask the agent to use the `opened-init` migration, or run:
+or relative, the key is stored at `~/.config/opened/loom-api-key`. To migrate a key from an
+existing private file, ask the agent to use the `opened-init` migration with that file path, or run:
 
 ```sh
-node .agents/skills/opened-init/scripts/opened-init.mjs --migrate
+node .agents/skills/opened-init/scripts/opened-init.mjs --migrate /path/to/existing/key
 ```
 
-Adjust the skill path for the installation location when needed. Migration refuses to overwrite a
-new key and retains the old file. Once any older installations no longer need it, remove the old
-file yourself if desired.
+Adjust the skill and source paths as needed. Migration refuses to overwrite a new key and retains
+the old file. Once it is no longer needed, remove the old file yourself if desired.
 
 Set `OPENED_BASE_URL` to the Loom service origin, without `/api`, or provide that address to the
 agent. The API skill uses a POSIX shell and `curl` to send requests without exposing the key in
-command arguments or output.
+command arguments or output. API-key management and administrative operations are outside the
+skill's scope; restrict the API key's permissions when enforcing access boundaries.
 
 ## Verify
 

@@ -17,7 +17,6 @@ async function start(t, variables = {}, scriptPath = script) {
   t.after(() => rm(directory, { recursive: true, force: true }));
   const env = {
     ...process.env,
-    XGD_CONFIG_DIR: path.join(directory, "legacy"),
     XDG_CONFIG_HOME: path.join(directory, "config"),
     ...variables,
   };
@@ -109,11 +108,11 @@ test("reinitialization replaces the key with a private file", async (t) => {
   assert.equal((await stat(keyFile)).mode & 0o777, 0o600);
 });
 
-test("without the custom variable, initialization uses XDG_CONFIG_HOME", async (t) => {
+test("initialization uses an absolute XDG_CONFIG_HOME", async (t) => {
   const directory = await mkdtemp(path.join(os.tmpdir(), "opened-init-xdg-test-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const configured = path.join(directory, "xdg");
-  const { url } = await start(t, { XGD_CONFIG_DIR: "", XDG_CONFIG_HOME: configured });
+  const { url } = await start(t, { XDG_CONFIG_HOME: configured });
   const result = await fetch(url, {
     method: "POST",
     headers: { Origin: url.origin, "Content-Type": "application/x-www-form-urlencoded" },
@@ -189,10 +188,36 @@ test("the documented API function sends a private key only in the HTTP header", 
   });
 });
 
+test("the API function refuses key management and administrative routes", async (t) => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "opened-api-scope-test-"));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const config = path.join(directory, "config");
+  const keyFile = path.join(config, "opened", "loom-api-key");
+  await mkdir(path.dirname(keyFile), { recursive: true });
+  await writeFile(keyFile, fakeKey, { mode: 0o600 });
+  const requests = [];
+  const server = http.createServer((request, response) => {
+    requests.push(request.url);
+    response.end("[]");
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => server.close());
+  const skill = await readFile(fileURLToPath(new URL("../SKILL.md", import.meta.url)), "utf8");
+  const shell = skill.match(/```sh\n([\s\S]*?)\n```/)[1];
+  const env = { ...process.env, XDG_CONFIG_HOME: config, OPENED_BASE_URL: `http://127.0.0.1:${server.address().port}` };
+  for (const route of ["/api-keys", "/api-keys/key-id", "/api-keys?limit=1", "/admin", "/admin/users", "/admin?view=users", "/roadmaps/../admin/users", "/%61dmin/users"]) {
+    await assert.rejects(exec("sh", ["-c", `${shell}\nopened_api "$1"`, "opened-api-test", route], { env }));
+  }
+  assert.deepEqual(requests, []);
+  const result = await exec("sh", ["-c", `${shell}\nopened_api "$1"`, "opened-api-test", "/roadmaps?query=a%20b"], { env });
+  assert.equal(result.stdout, "[]");
+  assert.deepEqual(requests, ["/api/roadmaps?query=a%20b"]);
+});
+
 test("initialization falls back to the user's XDG configuration directory", async (t) => {
   const home = await mkdtemp(path.join(os.tmpdir(), "opened-init-home-test-"));
   t.after(() => rm(home, { recursive: true, force: true }));
-  const { url } = await start(t, { HOME: home, XGD_CONFIG_DIR: "", XDG_CONFIG_HOME: "" });
+  const { url } = await start(t, { HOME: home, XDG_CONFIG_HOME: "" });
   const result = await fetch(url, {
     method: "POST",
     headers: { Origin: url.origin, "Content-Type": "application/x-www-form-urlencoded" },
@@ -205,7 +230,7 @@ test("initialization falls back to the user's XDG configuration directory", asyn
 test("initialization and API calls ignore a relative XDG_CONFIG_HOME", async (t) => {
   const home = await mkdtemp(path.join(os.tmpdir(), "opened-relative-xdg-test-"));
   t.after(() => rm(home, { recursive: true, force: true }));
-  const { directory, env, url } = await start(t, { HOME: home, XGD_CONFIG_DIR: "", XDG_CONFIG_HOME: "relative" });
+  const { directory, env, url } = await start(t, { HOME: home, XDG_CONFIG_HOME: "relative" });
   const saved = await fetch(url, {
     method: "POST",
     headers: { Origin: url.origin, "Content-Type": "application/x-www-form-urlencoded" },
@@ -268,19 +293,19 @@ async function migrationFixture(t) {
   t.after(() => rm(directory, { recursive: true, force: true }));
   const env = {
     ...process.env,
-    XGD_CONFIG_DIR: path.join(directory, "legacy"),
     XDG_CONFIG_HOME: path.join(directory, "config"),
   };
-  const source = path.join(env.XGD_CONFIG_DIR, "edharness", "opened_key");
+  const source = path.join(directory, "previous location", "saved key");
   const target = path.join(env.XDG_CONFIG_HOME, "opened", "loom-api-key");
   await mkdir(path.dirname(source), { recursive: true });
   await writeFile(source, fakeKey, { mode: 0o600 });
   return { env, source, target };
 }
 
-async function migrate(t, env) {
+async function migrate(t, env, source) {
   try {
-    const result = await exec(process.execPath, [script, "--migrate"], { env, timeout: 5000 });
+    const args = source === undefined ? [script, "--migrate"] : [script, "--migrate", source];
+    const result = await exec(process.execPath, args, { env, timeout: 5000 });
     if (result.stdout.startsWith("http://127.0.0.1:")) {
       const url = new URL(result.stdout.trim());
       t.after(() => fetch(`${url.href}/cancel`, { method: "POST", headers: { Origin: url.origin } }).catch(() => {}));
@@ -293,7 +318,7 @@ async function migrate(t, env) {
 
 test("migration copies a legacy private key to the shared Opened directory without revealing it", async (t) => {
   const { env, source, target } = await migrationFixture(t);
-  const result = await migrate(t, env);
+  const result = await migrate(t, env, source);
   assert.equal(result.code, undefined);
   assert.equal(result.stdout.includes(fakeKey), false);
   assert.equal(result.stderr.includes(fakeKey), false);
@@ -302,23 +327,19 @@ test("migration copies a legacy private key to the shared Opened directory witho
   assert.equal(await readFile(source, "utf8"), fakeKey);
 });
 
-test("migration finds a legacy key in XDG_CONFIG_HOME when XGD_CONFIG_DIR is unset", async (t) => {
+test("migration requires an explicit source path", async (t) => {
   const { env, target } = await migrationFixture(t);
-  env.XGD_CONFIG_DIR = "";
-  const source = path.join(env.XDG_CONFIG_HOME, "edharness", "opened_key");
-  await mkdir(path.dirname(source), { recursive: true });
-  await writeFile(source, fakeKey, { mode: 0o600 });
   const result = await migrate(t, env);
-  assert.equal(result.code, undefined);
-  assert.equal(await readFile(target, "utf8"), fakeKey);
+  assert.notEqual(result.code, undefined);
+  await assert.rejects(stat(target), { code: "ENOENT" });
 });
 
 test("migration never overwrites an existing shared key", async (t) => {
-  const { env, target } = await migrationFixture(t);
+  const { env, source, target } = await migrationFixture(t);
   await mkdir(path.dirname(target), { recursive: true });
   const existing = `loom_${"y".repeat(43)}`;
   await writeFile(target, existing, { mode: 0o600 });
-  const result = await migrate(t, env);
+  const result = await migrate(t, env, source);
   assert.notEqual(result.code, undefined);
   assert.equal(await readFile(target, "utf8"), existing);
   assert.equal(result.stderr.includes(fakeKey), false);
@@ -327,7 +348,7 @@ test("migration never overwrites an existing shared key", async (t) => {
 test("migration refuses an unsafe legacy key file", async (t) => {
   const { env, source, target } = await migrationFixture(t);
   await chmod(source, 0o644);
-  const result = await migrate(t, env);
+  const result = await migrate(t, env, source);
   assert.notEqual(result.code, undefined);
   assert.equal(result.stderr.includes(fakeKey), false);
   await assert.rejects(stat(target), { code: "ENOENT" });
@@ -339,7 +360,7 @@ test("migration refuses a legacy key file reached through a symlink", async (t) 
   await writeFile(linkTarget, fakeKey, { mode: 0o600 });
   await rm(source);
   await symlink(linkTarget, source);
-  const result = await migrate(t, env);
+  const result = await migrate(t, env, source);
   assert.notEqual(result.code, undefined);
   assert.equal(result.stderr.includes(fakeKey), false);
   await assert.rejects(stat(target), { code: "ENOENT" });
@@ -349,7 +370,7 @@ test("migration refuses a writable shared key directory", async (t) => {
   const { env, source, target } = await migrationFixture(t);
   await mkdir(path.dirname(target), { recursive: true });
   await chmod(path.dirname(target), 0o777);
-  const result = await migrate(t, env);
+  const result = await migrate(t, env, source);
   assert.notEqual(result.code, undefined);
   assert.equal(result.stderr.includes(fakeKey), false);
   assert.equal(await readFile(source, "utf8"), fakeKey);

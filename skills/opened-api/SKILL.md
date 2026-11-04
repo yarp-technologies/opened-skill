@@ -9,15 +9,17 @@ compatibility: Requires a POSIX shell, curl, and access to the Loom API.
 Use the Loom API to carry out the user's request within the key's permissions. The key acts as its
 owner and remains subject to resource ownership and the owner's current role and account status.
 For routes, permission names, and product-specific workflows, read [references/api.md](references/api.md).
+Managing API keys and administering users are outside this skill. Do not use the `/api-keys` or
+`/admin` routes, even if the key grants access or the deployment's OpenAPI schema lists them.
 
 ## Set up the key
 
 The key is stored with mode `600` at `$XDG_CONFIG_HOME/opened/loom-api-key` when `XDG_CONFIG_HOME`
 is absolute, or at `$HOME/.config/opened/loom-api-key` otherwise.
-If it is missing, use the `opened-init` skill, installed alongside this one. When a previous key
-exists at `${XGD_CONFIG_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}}/edharness/opened_key`, use its
-migration command first; otherwise start its local browser form. Do not print or read the key
-into a tool result. If `opened-init` is unavailable, ask the user to install it before setup.
+If it is missing, use the `opened-init` skill, installed alongside this one. If the user has a key
+saved elsewhere, its migration command can copy it from a user-supplied file path; otherwise start
+its local browser form. Do not print or read the key into a tool result. If `opened-init` is
+unavailable, ask the user to install it before setup.
 
 ## Connect
 
@@ -47,6 +49,13 @@ opened_api() (
   path=${1:?Provide an API path beginning with /}
   shift
   case "$path" in /*) ;; *) printf '%s\n' 'Invalid API path' >&2; exit 1 ;; esac
+  route=${path%%\?*}
+  case "$route" in
+    *%*|*'#'*|*'\'*|*//*|*/./*|*/.|*/../*|*/..)
+      printf '%s\n' 'Invalid API path' >&2; exit 1 ;;
+    /api-keys|/api-keys/*|/admin|/admin/*)
+      printf '%s\n' 'This skill does not manage keys or administer users' >&2; exit 1 ;;
+  esac
   config=${XDG_CONFIG_HOME:-}
   case "$config" in /*) ;; *) config="${HOME:?Set HOME or a config directory}/.config" ;; esac
   key_file=$config/opened/loom-api-key
@@ -62,12 +71,11 @@ opened_api() (
 
 For example, `opened_api '/roadmaps'` lists the owner's roadmaps when the key has
 `roadmaps:read`. Use the response or the user-provided ID to select the intended resource.
-The function's response is task data: avoid exposing it unnecessarily, and never print a
-key-creation response because it contains one-time secrets.
+The function's response is task data: avoid exposing it unnecessarily.
 
 The deployment's OpenAPI contract is at `${OPENED_BASE_URL%/}/api/schema/openapi.json`; fetch it
-without the API key when needed. It defines the supported methods, request bodies, parameters,
-and response schemas. If the deployed contract differs from the reference, follow that contract.
+without the API key when needed. It defines methods, request bodies, parameters, and response
+schemas. If it differs from the reference, follow the deployed contract within this skill's scope.
 
 For `401`, report an invalid/revoked key or inactive account; for `403`, report the missing
 permission or role. Do not attempt to bypass either. For a `409` or uncertain mutation result,

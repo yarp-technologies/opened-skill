@@ -15,10 +15,15 @@ if (process.platform === "win32") {
   process.exitCode = 1;
 } else if (process.argv[2] === "--migrate") {
   try {
-    await migrate();
-    console.log("The legacy Loom key was copied to the Opened configuration directory.");
+    if (process.argv.length !== 4 || !process.argv[3]) {
+      console.error("Specify the path to the existing key file after --migrate.");
+      process.exitCode = 1;
+    } else {
+      await migrate(process.argv[3]);
+      console.log("The existing Loom key was copied to the Opened configuration directory.");
+    }
   } catch (error) {
-    if (error.code === "ENOENT") console.error("The legacy Loom key was not found.");
+    if (error.code === "ENOENT") console.error("The existing Loom key was not found.");
     else if (error.code === "EEXIST") console.error("An Opened key already exists and was not changed.");
     else console.error("Could not migrate the Loom key. Check the key and directory permissions.");
     process.exitCode = 1;
@@ -167,10 +172,8 @@ function form(route) {
 <form method="post" action="${route}/cancel"><button type="submit">Cancel</button></form></body></html>`;
 }
 
-async function migrate() {
-  const legacyConfig = process.env.XGD_CONFIG_DIR || process.env.XDG_CONFIG_HOME || path.join(os.homedir(), ".config");
-  const legacyPath = path.join(legacyConfig, "edharness", "opened_key");
-  const file = await open(legacyPath, constants.O_RDONLY | (constants.O_NOFOLLOW || 0) | (constants.O_NONBLOCK || 0));
+async function migrate(source) {
+  const file = await open(source, constants.O_RDONLY | (constants.O_NOFOLLOW || 0) | (constants.O_NONBLOCK || 0));
   let key;
   try {
     const info = await file.stat();

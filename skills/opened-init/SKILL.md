@@ -19,10 +19,9 @@ to reveal the key. Native Windows cannot guarantee these POSIX permissions; use 
 
 ## Migrate an existing key
 
-When restoring access to an existing key and the new key is missing, check for a previous key at
-`${XGD_CONFIG_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}}/edharness/opened_key`. If it exists, run
-`node <this-skill-directory>/scripts/opened-init.mjs --migrate` instead of opening a new form.
-The helper copies a private legacy key to the new location without printing it, refuses to overwrite
-an existing new key, and leaves the legacy file in place. Report a migration error without printing
-the key or attempting to bypass its file permissions. When the user explicitly wants to replace a
-key, use the browser form instead.
+If the user wants to reuse a key saved in an existing file, ask for its file path, not its contents.
+Run `node <this-skill-directory>/scripts/opened-init.mjs --migrate <existing-key-file>` instead of
+opening a new form. The helper copies a private key to the new location without printing it, refuses
+to overwrite an existing new key, and leaves the source file in place. Report a migration error
+without printing the key or attempting to bypass its file permissions. When the user explicitly
+wants to replace a key, use the browser form instead.
