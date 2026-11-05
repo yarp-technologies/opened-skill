@@ -58,7 +58,7 @@ test("the Opened profile link does not expose the local form address", async (t)
   const { url } = await start(t);
   const page = await fetch(url);
   const html = await page.text();
-  const link = html.match(/<a\b[^>]*href="https:\/\/opened\.site\/app\/profile"[^>]*>/)?.[0];
+  const link = html.match(/<a\b[^>]*href="https:\/\/demo\.opened\.site\/app\/profile"[^>]*>/)?.[0];
   assert.ok(link, "the form links to the Opened profile");
   assert.match(link, /\btarget="_blank"/);
   assert.match(link, /\brel="[^"]*\bnoreferrer\b[^"]*"/);
@@ -211,7 +211,7 @@ test("the API function defaults to the Opened service when no origin is configur
   delete env.OPENED_BASE_URL;
   const mock = 'curl() { cat >/dev/null; printf "%s\\n" "$@"; }';
   const result = await exec("sh", ["-c", `${shell}\n${mock}\nopened_api '/roadmaps'`], { env });
-  assert.equal(result.stdout.trim().split("\n").at(-1), "https://opened.site/api/roadmaps");
+  assert.equal(result.stdout.trim().split("\n").at(-1), "https://demo.opened.site/api/roadmaps");
   assert.equal(result.stdout.includes(fakeKey), false);
 });
 

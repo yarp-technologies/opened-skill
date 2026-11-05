@@ -23,8 +23,8 @@ is unavailable, ask the user to install it before setup.
 
 ## Connect
 
-- The Opened API is at `https://opened.site/api`. By default use service origin
-  `https://opened.site`; set `OPENED_BASE_URL` to a different origin only when the user explicitly
+- The Opened API is at `https://demo.opened.site/api`. By default use service origin
+  `https://demo.opened.site`; set `OPENED_BASE_URL` to a different origin only when the user explicitly
   supplies or configures one. The origin must not include `/api`. Use HTTPS outside local
   development. Product routes are under `/api`.
 - Use the key file and config-directory precedence described above. The file must be private
@@ -46,7 +46,7 @@ Keep shell tracing disabled while handling credentials, and don't use redirect o
 ```sh
 opened_api() (
   set +x
-  base_url=${OPENED_BASE_URL:-https://opened.site}
+  base_url=${OPENED_BASE_URL:-https://demo.opened.site}
   path=${1:?Provide an API path beginning with /}
   shift
   case "$path" in /*) ;; *) printf '%s\n' 'Invalid API path' >&2; exit 1 ;; esac

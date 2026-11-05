@@ -316,7 +316,7 @@ function form(route) {
   <section class="create" aria-labelledby="create-title">
     <p class="create-title" id="create-title">Need an API key?</p>
     <p class="hint">In your Opened profile, select API keys to create one.</p>
-    <a class="button" href="https://opened.site/app/profile" target="_blank" rel="noopener noreferrer" aria-label="Create an API key in your Opened profile (opens in a new tab)">
+    <a class="button" href="https://demo.opened.site/app/profile" target="_blank" rel="noopener noreferrer" aria-label="Create an API key in your Opened profile (opens in a new tab)">
       Create an API key
       <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 5h6v6M19 5l-9 9"/><path d="M19 13v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5"/></svg>
     </a>

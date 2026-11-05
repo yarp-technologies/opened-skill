@@ -1,6 +1,6 @@
 # Opened API reference
 
-The default API root is `https://opened.site/api`. All paths below are relative to `/api`; use the
+The default API root is `https://demo.opened.site/api`. All paths below are relative to `/api`; use the
 `opened_api` function from `SKILL.md` for authenticated operations. An explicitly configured
 `OPENED_BASE_URL` is a service origin without `/api` and replaces the default origin.
 

@@ -62,7 +62,7 @@ node .agents/skills/opened-init/scripts/opened-init.mjs --migrate /path/to/exist
 Adjust the skill and source paths as needed. Migration refuses to overwrite a new key and retains
 the old file. Once it is no longer needed, remove the old file yourself if desired.
 
-The Opened API is at `https://opened.site/api`. To use another deployment, set `OPENED_BASE_URL`
+The Opened API is at `https://demo.opened.site/api`. To use another deployment, set `OPENED_BASE_URL`
 to its origin without `/api`, or provide that origin to the agent. The API skill uses a POSIX shell
 and `curl` to send requests without exposing the key in
 command arguments or output. API-key management and administrative operations are outside the
