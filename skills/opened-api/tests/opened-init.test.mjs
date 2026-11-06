@@ -215,6 +215,33 @@ test("the API function defaults to the Opened service when no origin is configur
   assert.equal(result.stdout.includes(fakeKey), false);
 });
 
+test("the API function rejects empty and malformed keys without sending them", async (t) => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "opened-api-invalid-key-test-"));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const config = path.join(directory, "config");
+  const keyFile = path.join(config, "opened", "api-key");
+  await mkdir(path.dirname(keyFile), { recursive: true });
+  const requests = [];
+  const server = http.createServer((request, response) => {
+    requests.push(request.url);
+    response.end("[]");
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => server.close());
+  const skill = await readFile(fileURLToPath(new URL("../SKILL.md", import.meta.url)), "utf8");
+  const shell = skill.match(/```sh\n([\s\S]*?)\n```/)[1];
+  const env = { ...process.env, XDG_CONFIG_HOME: config, OPENED_BASE_URL: `http://127.0.0.1:${server.address().port}` };
+  for (const key of ["", "invalid key", 'invalid"key', "invalid\nkey"]) {
+    await writeFile(keyFile, key, { mode: 0o600 });
+    await assert.rejects(exec("sh", ["-c", `${shell}\nopened_api '/roadmaps'`], { env }), (error) => {
+      assert.match(error.stderr, /Invalid Opened key format/);
+      if (key) assert.equal(error.stderr.includes(key), false);
+      return true;
+    });
+  }
+  assert.deepEqual(requests, []);
+});
+
 test("the API function refuses key management and administrative routes", async (t) => {
   const directory = await mkdtemp(path.join(os.tmpdir(), "opened-api-scope-test-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
