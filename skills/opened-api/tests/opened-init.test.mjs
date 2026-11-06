@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { execFile } from "node:child_process";
+import { execFile, spawnSync } from "node:child_process";
 import { chmod, cp, mkdir, mkdtemp, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
 import http from "node:http";
 import os from "node:os";
@@ -11,6 +11,8 @@ import test from "node:test";
 const exec = promisify(execFile);
 const script = fileURLToPath(new URL("../scripts/opened-init.mjs", import.meta.url));
 const fakeKey = `loom_${"x".repeat(43)}`;
+const zsh = process.env.OPENED_TEST_ZSH || "zsh";
+const zshAvailable = spawnSync(zsh, ["-f", "-c", ":"], { stdio: "ignore" }).status === 0;
 
 async function start(t, variables = {}, scriptPath = script) {
   const directory = await mkdtemp(path.join(os.tmpdir(), "opened-init-test-"));
@@ -196,6 +198,33 @@ test("the documented API function sends a private key only in the HTTP header", 
     assert.equal(error.stderr.includes(fakeKey), false);
     return true;
   });
+});
+
+test("the API function can make requests in zsh", { skip: zshAvailable ? false : "zsh is not installed" }, async (t) => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "opened-api-zsh-test-"));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const config = path.join(directory, "config");
+  const keyFile = path.join(config, "opened", "api-key");
+  await mkdir(path.dirname(keyFile), { recursive: true });
+  await writeFile(keyFile, fakeKey, { mode: 0o600 });
+  const requests = [];
+  const server = http.createServer((request, response) => {
+    requests.push({ url: request.url, authorization: request.headers.authorization });
+    response.writeHead(200, { "content-type": "application/json" });
+    response.end('{"ok":true}\n');
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => server.close());
+  const skill = await readFile(fileURLToPath(new URL("../SKILL.md", import.meta.url)), "utf8");
+  const shell = skill.match(/```sh\n([\s\S]*?)\n```/)[1];
+  const env = { ...process.env, XDG_CONFIG_HOME: config, OPENED_BASE_URL: `http://127.0.0.1:${server.address().port}` };
+  const result = await exec(zsh, ["-f", "-c", `${shell}\nopened_api '/roadmaps' && opened_api '/materials?sort=recent'`], { env });
+  assert.deepEqual(requests, [
+    { url: "/api/roadmaps", authorization: `Bearer ${fakeKey}` },
+    { url: "/api/materials?sort=recent", authorization: `Bearer ${fakeKey}` },
+  ]);
+  assert.equal(result.stdout, '{"ok":true}\n{"ok":true}\n');
+  assert.equal(result.stderr.includes(fakeKey), false);
 });
 
 test("the API function defaults to the Opened service when no origin is configured", async (t) => {
